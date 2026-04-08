@@ -1,8 +1,6 @@
 const fs = require("fs");
 const path = require("path");
 const bcrypt = require("bcryptjs");
-const sqlite3 = require("sqlite3");
-const { open } = require("sqlite");
 const { isMysqlEnabled, getMysqlPool } = require("../config/mysql");
 
 let dbInstance = null;
@@ -45,31 +43,20 @@ async function getDb() {
     return dbInstance;
   }
 
-  if (isMysql()) {
-    const pool = getMysqlPool();
-    dbInstance = createMysqlCompatDb(pool);
-    return dbInstance;
+  if (!isMysql()) {
+    throw new Error(
+      "MySQL is not configured. Set DB_CLIENT=mysql and MYSQL_* or DATABASE_URL."
+    );
   }
 
-  const storageDir = path.join(process.cwd(), "storage");
-  if (!fs.existsSync(storageDir)) {
-    fs.mkdirSync(storageDir, { recursive: true });
-  }
-
-  dbInstance = await open({
-    filename: path.join(storageDir, "app.db"),
-    driver: sqlite3.Database,
-  });
-
+  const pool = getMysqlPool();
+  dbInstance = createMysqlCompatDb(pool);
   return dbInstance;
 }
 
 async function initDb() {
   const db = await getDb();
-  const schemaPath = path.join(
-    __dirname,
-    isMysql() ? "schema.mysql.sql" : "schema.sql"
-  );
+  const schemaPath = path.join(__dirname, "schema.mysql.sql");
   const schemaSql = fs.readFileSync(schemaPath, "utf8");
   await db.exec(schemaSql);
 
@@ -80,10 +67,7 @@ async function initDb() {
     "{{ADMIN_HASH}}": bcrypt.hashSync("admin123", 10),
   };
 
-  const seedPath = path.join(
-    __dirname,
-    isMysql() ? "seed.mysql.sql" : "seed.sql"
-  );
+  const seedPath = path.join(__dirname, "seed.mysql.sql");
   let seedSql = fs.readFileSync(seedPath, "utf8");
   for (const [key, value] of Object.entries(replacements)) {
     seedSql = seedSql.replaceAll(key, value);
