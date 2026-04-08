@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="bg-grid"></div>
+    <main class="page">
+      <header class="header">
+        <div>
+          <p class="eyebrow">Production Inventory Matrix</p>
+          <h1>Master Item</h1>
+          <p class="muted">Operator: <strong><%= user.username %></strong></p>
+        </div>
+        <form method="post" action="/logout">
+          <button type="submit" class="btn-secondary">Logout</button>
+        </form>
+      </header>
+
+      <section class="card">
+        <div class="nav-links">
+          <a href="/master-items" class="nav-link active">Master Items</a>
+          <a href="/bom-structure" class="nav-link">BOM Structure</a>
+        </div>
+      </section>
+
+      <section class="card">
+        <% if (msg) { %>
+        <div class="alert info"><%= msg %></div>
+        <% } %>
+        <% if (error) { %>
+        <div class="alert"><%= error %></div>
+        <% } %>
+        <div class="card-toolbar">
+          <h2>Input Master Item</h2>
+          <button type="button" class="js-open-create-master">+ Tambah Item</button>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <div class="inline-upload">
+          <div>
+            <h3>Upload Excel Master Item</h3>
+            <p class="muted">Kolom: Item Code, Item Name, Category, Quantity, Stock Unit, Std. Size, Issue Unit, Min. Stock, Max. Stock, Reorder Level, Default Storage Loc., Supplier</p>
+          </div>
+          <form method="post" action="/master-items/import" enctype="multipart/form-data" class="upload-form">
+            <input type="file" name="excelFile" accept=".xlsx,.xls" required />
+            <button type="submit">Upload Excel</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="card">
+        <form method="get" action="/master-items" class="search-row">
+          <input name="q" value="<%= q %>" placeholder="Cari code / name / category / supplier" />
+          <button type="submit">Cari</button>
+          <a href="/master-items" class="nav-link">Clear Filter</a>
+        </form>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Item Code</th>
+                <th>Item Name</th>
+                <th>Category</th>
+                <th>Quantity</th>
+                <th>Stock Unit</th>
+                <th>Std. Size</th>
+                <th>Issue Unit</th>
+                <th>Min. Stock</th>
+                <th>Max. Stock</th>
+                <th>Reorder Level</th>
+                <th>Default Storage Loc.</th>
+                <th>Supplier</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (!items.length) { %>
+              <tr>
+                <td colspan="13" class="empty">Belum ada data</td>
+              </tr>
+              <% } %>
+              <% items.forEach((item) => { %>
+              <tr>
+                <td><%= item.itemCode %></td>
+                <td><%= item.itemName %></td>
+                <td><%= item.category %></td>
+                <td><%= item.quantity %></td>
+                <td><%= item.unit %></td>
+                <td><%= item.stdSize %></td>
+                <td><%= item.unitMin %></td>
+                <td><%= item.minStock %></td>
+                <td><%= item.maxStock %></td>
+                <td><%= item.reorderLevel %></td>
+                <td><%= item.defaultStorageLoc %></td>
+                <td><%= item.supplier %></td>
+                <td class="action-cell">
+                  <button
+                    type="button"
+                    class="btn-secondary js-edit-master"
+                    data-id="<%= item.id %>"
+                    data-item-code="<%= item.itemCode %>"
+                    data-item-name="<%= item.itemName %>"
+                    data-category="<%= item.category %>"
+                    data-quantity="<%= item.quantity %>"
+                    data-unit="<%= item.unit %>"
+                    data-std-size="<%= item.stdSize %>"
+                    data-unit-min="<%= item.unitMin %>"
+                    data-min-stock="<%= item.minStock %>"
+                    data-max-stock="<%= item.maxStock %>"
+                    data-reorder-level="<%= item.reorderLevel %>"
+                    data-default-storage-loc="<%= item.defaultStorageLoc %>"
+                    data-supplier="<%= item.supplier %>"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-danger js-open-delete"
+                    data-action="/master-items/<%= item.id %>/delete"
+                    data-label="item <%= item.itemCode %>"
+                  >
+                    Hapus
+                  </button>
+                </td>
+              </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="masterCreateModal" class="modal">
+      <form method="dialog" class="modal-backdrop">
+        <button class="modal-close-x" aria-label="Close">x</button>
+      </form>
+      <div class="modal-content">
+        <h3>Tambah Master Item</h3>
+        <form method="post" action="/master-items" class="grid-4">
+          <input name="itemCode" placeholder="Item Code" required />
+          <input name="itemName" placeholder="Item Name" required />
+          <input name="category" placeholder="Category" required />
+          <input name="quantity" type="number" step="any" placeholder="Quantity" />
+          <input name="unit" placeholder="Stock Unit (pcs/m)" required />
+          <input name="stdSize" placeholder="Std. Size" />
+          <input name="unitMin" placeholder="Issue Unit (pcs/m)" />
+          <input name="minStock" type="number" step="any" placeholder="Min. Stock" />
+          <input name="maxStock" type="number" step="any" placeholder="Max. Stock" />
+          <input name="reorderLevel" type="number" step="any" placeholder="Reorder Level" />
+          <input name="defaultStorageLoc" placeholder="Default Storage Loc." />
+          <input name="supplier" placeholder="Supplier" />
+          <button type="submit">Simpan Item</button>
+          <button type="button" class="btn-secondary js-close-create-master">Batal</button>
+        </form>
+      </div>
+    </dialog>
+
+    <dialog id="masterEditModal" class="modal">
+      <form method="dialog" class="modal-backdrop">
+        <button class="modal-close-x" aria-label="Close">x</button>
+      </form>
+      <div class="modal-content">
+        <h3>Edit Master Item</h3>
+        <form id="masterEditForm" method="post" class="grid-4">
+          <input name="itemCode" id="edit-itemCode" placeholder="Item Code" required />
+          <input name="itemName" id="edit-itemName" placeholder="Item Name" required />
+          <input name="category" id="edit-category" placeholder="Category" required />
+          <input name="quantity" id="edit-quantity" type="number" step="any" placeholder="Quantity" />
+          <input name="unit" id="edit-unit" placeholder="Stock Unit (pcs/m)" required />
+          <input name="stdSize" id="edit-stdSize" placeholder="Std. Size" />
+          <input name="unitMin" id="edit-unitMin" placeholder="Issue Unit (pcs/m)" />
+          <input name="minStock" id="edit-minStock" type="number" step="any" placeholder="Min. Stock" />
+          <input name="maxStock" id="edit-maxStock" type="number" step="any" placeholder="Max. Stock" />
+          <input name="reorderLevel" id="edit-reorderLevel" type="number" step="any" placeholder="Reorder Level" />
+          <input name="defaultStorageLoc" id="edit-defaultStorageLoc" placeholder="Default Storage Loc." />
+          <input name="supplier" id="edit-supplier" placeholder="Supplier" />
+          <button type="submit">Update Item</button>
+          <button type="button" class="btn-secondary js-close-master-modal">Batal</button>
+        </form>
+      </div>
+    </dialog>
+
+    <dialog id="deleteWarnModal" class="modal">
+      <form method="dialog" class="modal-backdrop">
+        <button class="modal-close-x" aria-label="Close">x</button>
+      </form>
+      <div class="modal-content compact">
+        <h3>Konfirmasi Hapus</h3>
+        <p id="deleteWarnText" class="muted">Yakin ingin menghapus data ini?</p>
+        <form id="deleteWarnForm" method="post" class="modal-actions">
+          <button type="submit" class="btn-danger">Ya, Hapus</button>
+          <button type="button" class="btn-secondary js-close-delete-modal">Batal</button>
+        </form>
+      </div>
+    </dialog>
+
+    <script src="/app-ui.js"></script>
+  </body>
+</html>

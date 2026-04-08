@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="bg-grid"></div>
+    <main class="center-container">
+      <section class="card auth-card">
+        <p class="eyebrow">Factory Control Panel</p>
+        <h1>Secure Login</h1>
+        <p class="muted">Masuk ke dashboard master item pabrik</p>
+        <% if (error) { %>
+        <div class="alert"><%= error %></div>
+        <% } %>
+        <form method="post" action="/login" class="form-grid">
+          <label>
+            Username
+            <input type="text" name="username" required />
+          </label>
+          <label>
+            Password
+            <input type="password" name="password" required />
+          </label>
+          <button type="submit">Login</button>
+        </form>
+        <div class="hint-box">
+          <div><strong>Default User:</strong> superadmin / master</div>
+          <div><strong>New Admin:</strong> admin / admin123</div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
