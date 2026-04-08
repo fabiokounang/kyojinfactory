@@ -7,7 +7,7 @@ Starter project Node.js dengan style rapi dan simpel:
 - Struktur `src/config`, `src/controllers`, `src/routes`
 - Middleware umum: helmet, cors, morgan
 - View engine EJS untuk halaman login + master item
-- Database local SQLite (`storage/app.db`) or Railway Postgres via `DATABASE_URL`
+- Database local SQLite (`storage/app.db`) or MySQL (`mysql2`) via `DATABASE_URL`
 
 ## Menjalankan Project
 
@@ -58,13 +58,13 @@ Set environment variables in Railway:
 - `PORT` (Railway biasanya inject otomatis)
 - `JWT_SECRET`
 - `SESSION_SECRET`
-- `DATABASE_URL` (ambil dari Railway PostgreSQL service)
-- Optional: `PGSSL=true` jika koneksi PostgreSQL butuh SSL
+- `DATABASE_URL` (ambil dari Railway MySQL service, format `mysql://...`)
+- Optional: `MYSQL_SSL=true` jika koneksi MySQL butuh SSL
 
 Saat app start, sistem otomatis:
 
-- pilih Postgres jika `DATABASE_URL` ada, kalau tidak pakai SQLite local
-- jalankan schema SQL (`schema.pg.sql` / `schema.sql`)
-- jalankan seed default user (`seed.pg.sql` / `seed.sql`)
+- pilih MySQL jika `DATABASE_URL` mysql ada, kalau tidak pakai SQLite local
+- jalankan schema SQL (`schema.mysql.sql` / `schema.sql`)
+- jalankan seed default user (`seed.mysql.sql` / `seed.sql`)
 
 Jadi tabel dan user default (`superadmin`, `admin`) terbentuk otomatis di Railway.

@@ -3,47 +3,38 @@ const path = require("path");
 const bcrypt = require("bcryptjs");
 const sqlite3 = require("sqlite3");
 const { open } = require("sqlite");
-const { Pool } = require("pg");
+const { isMysqlEnabled, getMysqlPool } = require("../config/mysql");
 
 let dbInstance = null;
 
-function isPostgres() {
-  return Boolean(process.env.DATABASE_URL);
+function isMysql() {
+  return isMysqlEnabled();
 }
 
-function withPgPlaceholders(sql) {
-  let index = 0;
-  return sql.replace(/\?/g, () => {
-    index += 1;
-    return `$${index}`;
-  });
-}
-
-function createPgCompatDb(pool) {
+function createMysqlCompatDb(pool) {
   return {
-    driver: "postgres",
+    driver: "mysql",
     async exec(sql) {
-      await pool.query(sql);
+      const conn = await pool.getConnection();
+      try {
+        await conn.query(sql);
+      } finally {
+        conn.release();
+      }
     },
     async all(sql, ...params) {
-      const result = await pool.query(withPgPlaceholders(sql), params);
-      return result.rows;
+      const [rows] = await pool.query(sql, params);
+      return rows;
     },
     async get(sql, ...params) {
-      const result = await pool.query(withPgPlaceholders(sql), params);
-      return result.rows[0];
+      const [rows] = await pool.query(sql, params);
+      return rows[0];
     },
     async run(sql, ...params) {
-      const isInsert = /^\s*insert\s+/i.test(sql);
-      const hasReturning = /\sreturning\s+/i.test(sql);
-      let finalSql = sql;
-      if (isInsert && !hasReturning) {
-        finalSql = `${sql} RETURNING id`;
-      }
-      const result = await pool.query(withPgPlaceholders(finalSql), params);
+      const [result] = await pool.query(sql, params);
       return {
-        changes: result.rowCount || 0,
-        lastID: isInsert ? (result.rows[0] ? result.rows[0].id : null) : null,
+        changes: result.affectedRows || 0,
+        lastID: result.insertId || null,
       };
     },
   };
@@ -54,15 +45,9 @@ async function getDb() {
     return dbInstance;
   }
 
-  if (isPostgres()) {
-    const useSsl =
-      process.env.PGSSL === "true" ||
-      process.env.NODE_ENV === "production";
-    const pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: useSsl ? { rejectUnauthorized: false } : false,
-    });
-    dbInstance = createPgCompatDb(pool);
+  if (isMysql()) {
+    const pool = getMysqlPool();
+    dbInstance = createMysqlCompatDb(pool);
     return dbInstance;
   }
 
@@ -83,7 +68,7 @@ async function initDb() {
   const db = await getDb();
   const schemaPath = path.join(
     __dirname,
-    isPostgres() ? "schema.pg.sql" : "schema.sql"
+    isMysql() ? "schema.mysql.sql" : "schema.sql"
   );
   const schemaSql = fs.readFileSync(schemaPath, "utf8");
   await db.exec(schemaSql);
@@ -97,7 +82,7 @@ async function initDb() {
 
   const seedPath = path.join(
     __dirname,
-    isPostgres() ? "seed.pg.sql" : "seed.sql"
+    isMysql() ? "seed.mysql.sql" : "seed.sql"
   );
   let seedSql = fs.readFileSync(seedPath, "utf8");
   for (const [key, value] of Object.entries(replacements)) {
