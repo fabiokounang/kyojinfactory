@@ -1,4 +1,10 @@
 const { getDb } = require("../database/sqlite");
+const { parsePage, parsePageSize, computePaginationMeta } = require("../lib/pagination");
+const { normalizeCategoryFilter } = require("../config/master-item-filters");
+
+const SEARCH_WHERE = `(lower(item_code) LIKE ? OR lower(item_name) LIKE ? OR lower(category) LIKE ?
+  OR lower(supplier) LIKE ? OR lower(std_size) LIKE ? OR lower(unit_min) LIKE ?
+  OR lower(default_storage_loc) LIKE ? OR lower(unit) LIKE ?)`;
 
 function toNumber(value) {
   const num = Number(value);
@@ -35,29 +41,67 @@ function validateItemInput(payload) {
   return null;
 }
 
-async function listItems(query) {
-  const db = await getDb();
-  if (!query) {
-    const rows = await db.all(
-      "SELECT * FROM master_items ORDER BY id DESC"
-    );
-    return rows.map(mapRowToItem);
+function buildMasterItemListConditions(query, category) {
+  const conditions = [];
+  const params = [];
+
+  const cat = normalizeCategoryFilter(category);
+  if (cat) {
+    conditions.push("category = ?");
+    params.push(cat);
   }
 
-  const keyword = `%${query.toLowerCase()}%`;
+  const q = String(query || "").trim();
+  if (q) {
+    const keyword = `%${q.toLowerCase()}%`;
+    conditions.push(SEARCH_WHERE);
+    params.push(keyword, keyword, keyword, keyword, keyword, keyword, keyword, keyword);
+  }
+
+  return { conditions, params };
+}
+
+async function listItems(query) {
+  const db = await getDb();
+  const { conditions, params } = buildMasterItemListConditions(query, "");
+  const whereSql = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const rows = await db.all(
-    `SELECT * FROM master_items
-     WHERE lower(item_code) LIKE ?
-        OR lower(item_name) LIKE ?
-        OR lower(category) LIKE ?
-        OR lower(supplier) LIKE ?
-     ORDER BY id DESC`,
-    keyword,
-    keyword,
-    keyword,
-    keyword
+    `SELECT * FROM master_items ${whereSql} ORDER BY id DESC`,
+    ...params
   );
   return rows.map(mapRowToItem);
+}
+
+async function listItemsPaged({ q, category, page, pageSize }) {
+  const db = await getDb();
+  const { conditions, params } = buildMasterItemListConditions(q, category);
+  const whereSql = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  const countRow = await db.get(
+    `SELECT COUNT(*) AS total FROM master_items ${whereSql}`,
+    ...params
+  );
+  const total = Number(countRow?.total || 0);
+
+  const ps = parsePageSize(pageSize);
+  const meta = computePaginationMeta(total, parsePage(page), ps);
+
+  const rows = await db.all(
+    `SELECT * FROM master_items ${whereSql} ORDER BY id DESC LIMIT ? OFFSET ?`,
+    ...params,
+    meta.pageSize,
+    meta.offset
+  );
+
+  return {
+    items: rows.map(mapRowToItem),
+    total: meta.total,
+    page: meta.page,
+    pageSize: meta.pageSize,
+    totalPages: meta.totalPages,
+    from: meta.from,
+    to: meta.to,
+  };
 }
 
 async function createItem(payload, createdBy) {
@@ -154,7 +198,11 @@ async function updateItem(id, payload) {
   );
 
   const row = await db.get("SELECT * FROM master_items WHERE id = ?", id);
-  return { data: mapRowToItem(row) };
+  return {
+    data: mapRowToItem(row),
+    before: mapRowToItem(current),
+    after: mapRowToItem(row),
+  };
 }
 
 async function deleteItem(id) {
@@ -320,6 +368,7 @@ function mapRowToItem(row) {
 
 module.exports = {
   listItems,
+  listItemsPaged,
   createItem,
   updateItem,
   deleteItem,

@@ -1,15 +1,30 @@
 const {
-  listItems,
+  listItemsPaged,
   createItem,
   updateItem,
   deleteItem,
 } = require("../services/master-item.service");
+const { parsePage, parsePageSize } = require("../lib/pagination");
+const { normalizeCategoryFilter } = require("../config/master-item-filters");
 
 async function listMasterItemsHandler(req, res) {
-  const data = await listItems(req.query.q || "");
+  const q = String(req.query.q || "");
+  const category = normalizeCategoryFilter(req.query.category);
+  const page = parsePage(req.query.page);
+  const pageSize = parsePageSize(req.query.pageSize);
+
+  const result = await listItemsPaged({ q, category, page, pageSize });
   return res.status(200).json({
     success: true,
-    data,
+    data: result.items,
+    pagination: {
+      total: result.total,
+      page: result.page,
+      pageSize: result.pageSize,
+      totalPages: result.totalPages,
+      from: result.from,
+      to: result.to,
+    },
   });
 }
 

@@ -22,8 +22,9 @@
 
       <section class="card">
         <div class="nav-links">
-          <a href="/master-items" class="nav-link active">Master Items</a>
-          <a href="/bom-structure" class="nav-link">BOM Structure</a>
+          <% (navItems || []).forEach((nav) => { %>
+          <a href="<%= nav.path %>" class="nav-link <%= nav.active ? "active" : "" %>"><%= nav.label %></a>
+          <% }) %>
         </div>
       </section>
 
@@ -54,11 +55,18 @@
       </section>
 
       <section class="card">
-        <form method="get" action="/master-items" class="search-row">
-          <input name="q" value="<%= q %>" placeholder="Cari code / name / category / supplier" />
+        <form method="get" action="/master-items" id="masterItemsFilterForm" class="search-row datatable-filters">
+          <input name="q" value="<%= q %>" placeholder="Cari (code, nama, kategori, supplier, lokasi, unit…)" />
+          <select name="category" aria-label="Filter kategori">
+            <% (categoryFilterOptions || []).forEach((opt) => { %>
+            <option value="<%= opt.value %>" <%= category === opt.value ? "selected" : "" %>><%= opt.label %></option>
+            <% }) %>
+          </select>
           <button type="submit">Cari</button>
-          <a href="/master-items" class="nav-link">Clear Filter</a>
+          <a href="/master-items" class="nav-link">Reset</a>
         </form>
+
+        <%- include('partials/pagination', { pagination, formId: 'masterItemsFilterForm' }) %>
 
         <div class="table-wrap">
           <table>

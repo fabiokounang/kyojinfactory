@@ -6,6 +6,38 @@ CREATE TABLE IF NOT EXISTS users (
   created_at VARCHAR(64) NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS user_menu_permissions (
+  id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  menu_key VARCHAR(100) NOT NULL,
+  can_access TINYINT(1) NOT NULL DEFAULT 0,
+  updated_at VARCHAR(64) NOT NULL,
+  UNIQUE KEY uq_user_menu_permission (user_id, menu_key),
+  INDEX idx_user_menu_user_id (user_id)
+);
+
+CREATE TABLE IF NOT EXISTS activity_logs (
+  id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NULL,
+  username VARCHAR(191) NOT NULL,
+  role VARCHAR(100) NOT NULL,
+  ip_address VARCHAR(191) NOT NULL,
+  action VARCHAR(191) NOT NULL,
+  menu_key VARCHAR(100) DEFAULT '',
+  entity_type VARCHAR(191) DEFAULT '',
+  entity_id VARCHAR(191) DEFAULT '',
+  status VARCHAR(50) NOT NULL DEFAULT 'success',
+  note VARCHAR(255) DEFAULT '',
+  before_data LONGTEXT NULL,
+  after_data LONGTEXT NULL,
+  submitted_data LONGTEXT NULL,
+  deleted_data LONGTEXT NULL,
+  created_at VARCHAR(64) NOT NULL,
+  INDEX idx_activity_created_at (created_at),
+  INDEX idx_activity_username (username),
+  INDEX idx_activity_action (action)
+);
+
 CREATE TABLE IF NOT EXISTS master_items (
   id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   item_code VARCHAR(191) NOT NULL UNIQUE,

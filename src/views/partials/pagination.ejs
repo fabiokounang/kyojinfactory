@@ -1,0 +1,43 @@
+<% if (typeof pagination !== "undefined" && pagination && pagination.totalPages >= 1) { %>
+<div class="table-toolbar">
+  <p class="muted pagination-summary">
+    Menampilkan <%= pagination.from %>–<%= pagination.to %> dari <%= pagination.total %> baris
+    <% if (pagination.totalPages > 1) { %>
+    &nbsp;·&nbsp; Halaman <%= pagination.page %> / <%= pagination.totalPages %>
+    <% } %>
+  </p>
+  <div class="pagination-bar">
+    <% if (typeof formId !== "undefined" && formId) { %>
+    <label class="page-size-label">
+      Per halaman
+      <select class="page-size-select" name="pageSize" form="<%= formId %>">
+        <% pagination.allowedPageSizes.forEach((size) => { %>
+        <option value="<%= size %>" <%= Number(pagination.pageSize) === size ? "selected" : "" %>><%= size %></option>
+        <% }) %>
+      </select>
+    </label>
+    <% } %>
+    <nav class="pagination-nav" aria-label="Pagination">
+      <% if (pagination.firstHref) { %>
+      <a class="nav-link pagination-link" href="<%= pagination.firstHref %>">« Awal</a>
+      <% } %>
+      <% if (pagination.prevHref) { %>
+      <a class="nav-link pagination-link" href="<%= pagination.prevHref %>">‹ Prev</a>
+      <% } %>
+      <% pagination.pageHrefs.forEach((ph) => { %>
+      <a
+        class="nav-link pagination-link <%= ph.active ? "active" : "" %>"
+        href="<%= ph.href %>"
+        <%= ph.active ? 'aria-current="page"' : "" %>
+        ><%= ph.num %></a>
+      <% }) %>
+      <% if (pagination.nextHref) { %>
+      <a class="nav-link pagination-link" href="<%= pagination.nextHref %>">Next ›</a>
+      <% } %>
+      <% if (pagination.lastHref) { %>
+      <a class="nav-link pagination-link" href="<%= pagination.lastHref %>">Akhir »</a>
+      <% } %>
+    </nav>
+  </div>
+</div>
+<% } %>

@@ -22,8 +22,9 @@
 
       <section class="card">
         <div class="nav-links">
-          <a href="/master-items" class="nav-link">Master Items</a>
-          <a href="/bom-structure" class="nav-link active">BOM Structure</a>
+          <% (navItems || []).forEach((nav) => { %>
+          <a href="<%= nav.path %>" class="nav-link <%= nav.active ? "active" : "" %>"><%= nav.label %></a>
+          <% }) %>
         </div>
       </section>
 
@@ -54,7 +55,9 @@
       </section>
 
       <section class="card">
-        <form method="get" action="/bom-structure" class="search-row">
+        <form method="get" action="/bom-structure" id="bomFilterForm" class="search-row datatable-filters">
+          <input name="q" value="<%= typeof q !== 'undefined' ? q : '' %>" placeholder="Cari FG / parent / component / nama / RM…" />
+          <input name="fgCode" value="<%= typeof fgCode !== 'undefined' ? fgCode : '' %>" placeholder="FG Code (exact)" />
           <select name="parentCode">
             <option value="">Filter Parent: Semua</option>
             <% parentOptions.forEach((parent) => { %>
@@ -72,8 +75,10 @@
             <option value="5" <%= levelFilter === "5" ? "selected" : "" %>>Level 5</option>
           </select>
           <button type="submit">Filter</button>
-          <a href="/bom-structure" class="nav-link">Clear Filter</a>
+          <a href="/bom-structure" class="nav-link">Reset</a>
         </form>
+
+        <%- include('partials/pagination', { pagination, formId: 'bomFilterForm' }) %>
 
         <div class="table-wrap">
           <table>

@@ -1,4 +1,5 @@
 const { getDb } = require("../database/sqlite");
+const { parsePage, parsePageSize, computePaginationMeta } = require("../lib/pagination");
 
 function toNumber(value) {
   const num = Number(value);
@@ -107,8 +108,7 @@ async function listBomByFgCode(fgCode) {
   return rows.map(mapRow);
 }
 
-async function listBomRows(filters = {}) {
-  const db = await getDb();
+function buildBomListConditions(filters = {}) {
   const conditions = [];
   const params = [];
 
@@ -122,6 +122,27 @@ async function listBomRows(filters = {}) {
     params.push(Number(filters.level));
   }
 
+  if (filters.fgCode && String(filters.fgCode).trim()) {
+    conditions.push("fg_code = ?");
+    params.push(String(filters.fgCode).trim());
+  }
+
+  const q = String(filters.q || "").trim();
+  if (q) {
+    const keyword = `%${q.toLowerCase()}%`;
+    conditions.push(
+      `(lower(fg_code) LIKE ? OR lower(parent_code) LIKE ? OR lower(component_code) LIKE ?
+        OR lower(component_name) LIKE ? OR lower(raw_material_code) LIKE ? OR lower(unit) LIKE ?)`
+    );
+    params.push(keyword, keyword, keyword, keyword, keyword, keyword);
+  }
+
+  return { conditions, params };
+}
+
+async function listBomRows(filters = {}) {
+  const db = await getDb();
+  const { conditions, params } = buildBomListConditions(filters);
   const whereSql = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const rows = await db.all(
     `SELECT * FROM bom_structures
@@ -131,6 +152,41 @@ async function listBomRows(filters = {}) {
   );
 
   return rows.map(mapRow);
+}
+
+async function listBomRowsPaged(filters = {}) {
+  const db = await getDb();
+  const { conditions, params } = buildBomListConditions(filters);
+  const whereSql = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  const countRow = await db.get(
+    `SELECT COUNT(*) AS total FROM bom_structures ${whereSql}`,
+    ...params
+  );
+  const total = Number(countRow?.total || 0);
+
+  const ps = parsePageSize(filters.pageSize);
+  const meta = computePaginationMeta(total, parsePage(filters.page), ps);
+
+  const rows = await db.all(
+    `SELECT * FROM bom_structures
+     ${whereSql}
+     ORDER BY fg_code ASC, level ASC, parent_code ASC, component_code ASC
+     LIMIT ? OFFSET ?`,
+    ...params,
+    meta.pageSize,
+    meta.offset
+  );
+
+  return {
+    rows: rows.map(mapRow),
+    total: meta.total,
+    page: meta.page,
+    pageSize: meta.pageSize,
+    totalPages: meta.totalPages,
+    from: meta.from,
+    to: meta.to,
+  };
 }
 
 async function listParentOptions(fgCode) {
@@ -369,7 +425,11 @@ async function updateBomRow(id, payload) {
   );
 
   const row = await db.get("SELECT * FROM bom_structures WHERE id = ?", id);
-  return { data: mapRow(row) };
+  return {
+    data: mapRow(row),
+    before: mapRow(current),
+    after: mapRow(row),
+  };
 }
 
 async function importBomRows(rows, createdBy, options = {}) {
@@ -456,6 +516,7 @@ module.exports = {
   listFgCodes,
   listBomByFgCode,
   listBomRows,
+  listBomRowsPaged,
   listParentOptions,
   listParentOptionsAll,
   createBomRow,

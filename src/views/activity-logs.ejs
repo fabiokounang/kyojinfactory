@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="bg-grid"></div>
+    <main class="page">
+      <header class="header">
+        <div>
+          <p class="eyebrow">Audit Trail</p>
+          <h1>Activity Logs</h1>
+          <p class="muted">Operator: <strong><%= user.username %></strong></p>
+        </div>
+        <form method="post" action="/logout">
+          <button type="submit" class="btn-secondary">Logout</button>
+        </form>
+      </header>
+
+      <section class="card">
+        <div class="nav-links">
+          <% (navItems || []).forEach((nav) => { %>
+          <a href="<%= nav.path %>" class="nav-link <%= nav.active ? "active" : "" %>"><%= nav.label %></a>
+          <% }) %>
+        </div>
+      </section>
+
+      <section class="card">
+        <form method="get" action="/activity-logs" id="activityLogsFilterForm" class="search-row datatable-filters">
+          <input name="username" value="<%= username %>" placeholder="Username" />
+          <input name="action" value="<%= action %>" placeholder="Action" />
+          <select name="menuKey">
+            <% (menuKeyOptions || []).forEach((opt) => { %>
+            <option value="<%= opt.value %>" <%= menuKey === opt.value ? "selected" : "" %>><%= opt.label %></option>
+            <% }) %>
+          </select>
+          <select name="status">
+            <option value="" <%= !status ? "selected" : "" %>>Status: semua</option>
+            <option value="success" <%= status === "success" ? "selected" : "" %>>success</option>
+            <option value="failed" <%= status === "failed" ? "selected" : "" %>>failed</option>
+          </select>
+          <input name="ip" value="<%= typeof ip !== 'undefined' ? ip : '' %>" placeholder="IP (partial)" />
+          <input name="role" value="<%= typeof role !== 'undefined' ? role : '' %>" placeholder="Role" />
+          <button type="submit">Filter</button>
+          <a href="/activity-logs" class="nav-link">Reset</a>
+        </form>
+
+        <%- include('partials/pagination', { pagination, formId: 'activityLogsFilterForm' }) %>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Waktu (WIB)</th>
+                <th>User</th>
+                <th>Role</th>
+                <th>IP</th>
+                <th>Aktivitas</th>
+                <th>Status</th>
+                <th>Detail</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (!logs.length) { %>
+              <tr>
+                <td colspan="7" class="empty">Belum ada aktivitas</td>
+              </tr>
+              <% } %>
+              <% logs.forEach((log) => { %>
+              <tr>
+                <td class="activity-time-cell">
+                  <span class="activity-time-main"><%= log.createdAtFormatted %></span>
+                  <span class="activity-time-utc muted" title="Nilai UTC tersimpan di server">UTC: <%= log.createdAt %></span>
+                </td>
+                <td><%= log.username %></td>
+                <td><%= log.role %></td>
+                <td><code class="ip-inline"><%= log.ipAddress %></code></td>
+                <td class="activity-action-cell">
+                  <span class="<%= log.actionDisplay.badgeClass %>" title="Kode teknis: <%= log.actionDisplay.raw %>"><%= log.actionDisplay.label %></span>
+                </td>
+                <td>
+                  <% if (log.status === 'success') { %>
+                  <span class="status-pill status-pill--ok">Berhasil</span>
+                  <% } else if (log.status === 'failed') { %>
+                  <span class="status-pill status-pill--fail">Gagal</span>
+                  <% } else { %>
+                  <span class="status-pill status-pill--neutral"><%= log.status %></span>
+                  <% } %>
+                </td>
+                <td>
+                  <details>
+                    <summary>Lihat</summary>
+                    <pre>
+menu: <%= log.menuKey %>
+entity: <%= log.entityType %> #<%= log.entityId %>
+note: <%= log.note || "-" %>
+submitted: <%= JSON.stringify(log.submittedData, null, 2) %>
+before: <%= JSON.stringify(log.beforeData, null, 2) %>
+after: <%= JSON.stringify(log.afterData, null, 2) %>
+deleted: <%= JSON.stringify(log.deletedData, null, 2) %>
+                    </pre>
+                  </details>
+                </td>
+              </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+    <script src="/app-ui.js"></script>
+  </body>
+</html>

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="bg-grid"></div>
+    <main class="page">
+      <header class="header">
+        <div>
+          <p class="eyebrow">Superadmin Console</p>
+          <h1>Kelola admin</h1>
+          <p class="muted">Operator: <strong><%= user.username %></strong> — CRUD akun admin &amp; hak akses menu</p>
+        </div>
+        <form method="post" action="/logout">
+          <button type="submit" class="btn-secondary">Logout</button>
+        </form>
+      </header>
+
+      <section class="card">
+        <div class="nav-links">
+          <% (navItems || []).forEach((nav) => { %>
+          <a href="<%= nav.path %>" class="nav-link <%= nav.active ? "active" : "" %>"><%= nav.label %></a>
+          <% }) %>
+        </div>
+      </section>
+
+      <section class="card">
+        <% if (msg) { %>
+        <div class="alert info"><%= msg %></div>
+        <% } %>
+        <% if (error) { %>
+        <div class="alert"><%= error %></div>
+        <% } %>
+
+        <div class="card-toolbar">
+          <h2>Daftar pengguna</h2>
+          <button type="button" class="js-open-create-admin">+ Tambah admin</button>
+        </div>
+
+        <form method="get" action="/admin/users" id="adminUsersFilterForm" class="search-row datatable-filters">
+          <input name="q" value="<%= typeof filterQ !== 'undefined' ? filterQ : '' %>" placeholder="Cari username" />
+          <select name="role">
+            <option value="all" <%= roleFilter === 'all' ? 'selected' : '' %>>Semua role</option>
+            <option value="superadmin" <%= roleFilter === 'superadmin' ? 'selected' : '' %>>superadmin</option>
+            <option value="admin" <%= roleFilter === 'admin' ? 'selected' : '' %>>admin</option>
+          </select>
+          <button type="submit">Filter</button>
+          <a href="/admin/users" class="nav-link">Reset</a>
+        </form>
+
+        <%- include('partials/pagination', { pagination, formId: 'adminUsersFilterForm' }) %>
+
+        <div hidden aria-hidden="true">
+          <% users.forEach((row) => { %>
+          <% if (row.role === "admin") { %>
+          <form id="admin-perm-<%= row.id %>" method="post" action="/admin/users/<%= row.id %>/permissions"></form>
+          <% } %>
+          <% }); %>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Role</th>
+                <% menuItems.forEach((menu) => { %>
+                <th><%= menu.label %></th>
+                <% }) %>
+                <th>Simpan akses</th>
+                <th>Kelola</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (!users.length) { %>
+              <tr>
+                <td colspan="<%= 4 + (menuItems || []).length %>" class="empty">Tidak ada data</td>
+              </tr>
+              <% } %>
+              <% users.forEach((row) => { %>
+              <tr>
+                <td><%= row.username %></td>
+                <td><%= row.role %></td>
+                <% menuItems.forEach((menu) => { %>
+                <td>
+                  <% if (row.role === "superadmin") { %>
+                  <span class="muted">Semua</span>
+                  <% } else { %>
+                  <input
+                    type="checkbox"
+                    form="admin-perm-<%= row.id %>"
+                    name="menuKeys"
+                    value="<%= menu.key %>"
+                    <%= row.permissions && row.permissions[menu.key] ? "checked" : "" %>
+                  />
+                  <% } %>
+                </td>
+                <% }) %>
+                <td>
+                  <% if (row.role === "superadmin") { %>
+                  <span class="muted">—</span>
+                  <% } else { %>
+                  <button type="submit" form="admin-perm-<%= row.id %>">Simpan akses</button>
+                  <% } %>
+                </td>
+                <td class="action-cell">
+                  <% if (row.role === "admin") { %>
+                  <button
+                    type="button"
+                    class="btn-secondary js-edit-admin"
+                    data-id="<%= row.id %>"
+                    data-username="<%= row.username %>"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-danger js-open-delete-admin"
+                    data-action="/admin/users/<%= row.id %>/delete"
+                    data-label="admin <%= row.username %>"
+                  >
+                    Hapus
+                  </button>
+                  <% } else { %>
+                  <span class="muted">—</span>
+                  <% } %>
+                </td>
+              </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="adminCreateModal" class="modal">
+      <form method="dialog" class="modal-backdrop">
+        <button class="modal-close-x" aria-label="Close">x</button>
+      </form>
+      <div class="modal-content">
+        <h3>Tambah admin</h3>
+        <p class="muted">Role otomatis <strong>admin</strong>. Hak menu default: Master Items &amp; BOM (bisa diubah setelahnya).</p>
+        <form method="post" action="/admin/users/create" class="form-grid">
+          <label>
+            Username
+            <input type="text" name="username" required autocomplete="off" pattern="[a-zA-Z0-9._-]{2,}" title="Huruf, angka, . _ - minimal 2 karakter" />
+          </label>
+          <label>
+            Password
+            <input type="password" name="password" required minlength="6" autocomplete="new-password" />
+          </label>
+          <button type="submit">Buat admin</button>
+          <button type="button" class="btn-secondary js-close-create-admin">Batal</button>
+        </form>
+      </div>
+    </dialog>
+
+    <dialog id="adminEditModal" class="modal">
+      <form method="dialog" class="modal-backdrop">
+        <button class="modal-close-x" aria-label="Close">x</button>
+      </form>
+      <div class="modal-content">
+        <h3>Edit admin</h3>
+        <p class="muted">Kosongkan password jika tidak ingin mengganti.</p>
+        <form id="adminEditForm" method="post" class="form-grid">
+          <label>
+            Username
+            <input type="text" name="username" id="admin-edit-username" required autocomplete="off" pattern="[a-zA-Z0-9._-]{2,}" />
+          </label>
+          <label>
+            Password baru (opsional)
+            <input type="password" name="password" id="admin-edit-password" minlength="6" autocomplete="new-password" placeholder="Kosongkan jika sama" />
+          </label>
+          <button type="submit">Simpan</button>
+          <button type="button" class="btn-secondary js-close-edit-admin">Batal</button>
+        </form>
+      </div>
+    </dialog>
+
+    <dialog id="adminDeleteWarnModal" class="modal">
+      <form method="dialog" class="modal-backdrop">
+        <button class="modal-close-x" aria-label="Close">x</button>
+      </form>
+      <div class="modal-content compact">
+        <h3>Konfirmasi hapus</h3>
+        <p id="adminDeleteWarnText" class="muted">Yakin ingin menghapus admin ini?</p>
+        <form id="adminDeleteWarnForm" method="post" class="modal-actions">
+          <button type="submit" class="btn-danger">Ya, hapus</button>
+          <button type="button" class="btn-secondary js-close-admin-delete-modal">Batal</button>
+        </form>
+      </div>
+    </dialog>
+
+    <script src="/app-ui.js"></script>
+  </body>
+</html>

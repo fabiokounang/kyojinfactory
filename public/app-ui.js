@@ -1,4 +1,58 @@
 (function () {
+  function initPageLoader() {
+    const loader = document.createElement("div");
+    loader.id = "globalPageLoader";
+    loader.className = "global-loader";
+    loader.innerHTML =
+      '<div class="global-loader-card"><div class="global-loader-spinner"></div><p>Loading, mohon tunggu...</p></div>';
+    document.body.appendChild(loader);
+
+    let timer = null;
+    const showLoader = () => {
+      if (timer) return;
+      timer = window.setTimeout(() => {
+        loader.classList.add("show");
+      }, 250);
+    };
+
+    const hideLoader = () => {
+      if (timer) {
+        window.clearTimeout(timer);
+        timer = null;
+      }
+      loader.classList.remove("show");
+    };
+
+    document.querySelectorAll("form").forEach((form) => {
+      form.addEventListener("submit", () => {
+        showLoader();
+      });
+    });
+
+    window.addEventListener("pageshow", () => {
+      hideLoader();
+    });
+  }
+
+  function initPageSizeSelect() {
+    document.querySelectorAll(".page-size-select").forEach((sel) => {
+      sel.addEventListener("change", () => {
+        const formId = sel.getAttribute("form");
+        const form = formId ? document.getElementById(formId) : sel.closest("form");
+        if (!form) return;
+        let pageField = form.querySelector('input[name="page"]');
+        if (!pageField) {
+          pageField = document.createElement("input");
+          pageField.type = "hidden";
+          pageField.name = "page";
+          form.appendChild(pageField);
+        }
+        pageField.value = "1";
+        form.submit();
+      });
+    });
+  }
+
   function initMasterItemPage() {
     const createModal = document.getElementById("masterCreateModal");
     const editModal = document.getElementById("masterEditModal");
@@ -75,6 +129,52 @@
     initDeleteModal(deleteModal, deleteForm, deleteText);
   }
 
+  function initAdminUsersPage() {
+    const createModal = document.getElementById("adminCreateModal");
+    const editModal = document.getElementById("adminEditModal");
+    const editForm = document.getElementById("adminEditForm");
+    const deleteModal = document.getElementById("adminDeleteWarnModal");
+    const deleteForm = document.getElementById("adminDeleteWarnForm");
+    const deleteText = document.getElementById("adminDeleteWarnText");
+    if (!createModal && !editModal) return;
+
+    document.querySelector(".js-open-create-admin")?.addEventListener("click", () => {
+      createModal?.showModal();
+    });
+    document.querySelector(".js-close-create-admin")?.addEventListener("click", () => {
+      createModal?.close();
+    });
+
+    document.querySelectorAll(".js-edit-admin").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (!editForm || !editModal) return;
+        editForm.action = `/admin/users/${btn.dataset.id}/update`;
+        const u = document.getElementById("admin-edit-username");
+        const p = document.getElementById("admin-edit-password");
+        if (u) u.value = btn.dataset.username || "";
+        if (p) p.value = "";
+        editModal.showModal();
+      });
+    });
+
+    document.querySelector(".js-close-edit-admin")?.addEventListener("click", () => {
+      editModal?.close();
+    });
+
+    if (deleteModal && deleteForm && deleteText) {
+      document.querySelectorAll(".js-open-delete-admin").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          deleteForm.action = btn.dataset.action;
+          deleteText.textContent = `Yakin ingin menghapus ${btn.dataset.label || "admin ini"}?`;
+          deleteModal.showModal();
+        });
+      });
+      document.querySelector(".js-close-admin-delete-modal")?.addEventListener("click", () => {
+        deleteModal.close();
+      });
+    }
+  }
+
   function initDeleteModal(deleteModal, deleteForm, deleteText) {
     document.querySelectorAll(".js-open-delete").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -89,4 +189,7 @@
 
   initMasterItemPage();
   initBomPage();
+  initAdminUsersPage();
+  initPageLoader();
+  initPageSizeSelect();
 })();
