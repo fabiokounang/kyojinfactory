@@ -1,37 +1,226 @@
 (function () {
   function initPageLoader() {
-    const loader = document.createElement("div");
-    loader.id = "globalPageLoader";
-    loader.className = "global-loader";
-    loader.innerHTML =
-      '<div class="global-loader-card"><div class="global-loader-spinner"></div><p>Loading, mohon tunggu...</p></div>';
-    document.body.appendChild(loader);
+    let loader = document.getElementById("globalPageLoader");
+    if (!loader) {
+      loader = document.createElement("div");
+      loader.id = "globalPageLoader";
+      loader.className = "global-loader";
+      loader.setAttribute("aria-live", "polite");
+      loader.setAttribute("aria-busy", "false");
+      loader.innerHTML =
+        '<div class="global-loader-card"><div class="global-loader-spinner"></div><p>Loading, mohon tunggu...</p></div>';
+      document.body.appendChild(loader);
+    }
 
-    let timer = null;
     const showLoader = () => {
-      if (timer) return;
-      timer = window.setTimeout(() => {
-        loader.classList.add("show");
-      }, 250);
+      loader.classList.add("show");
+      loader.setAttribute("aria-busy", "true");
     };
 
     const hideLoader = () => {
-      if (timer) {
-        window.clearTimeout(timer);
-        timer = null;
-      }
       loader.classList.remove("show");
+      loader.setAttribute("aria-busy", "false");
     };
 
     document.querySelectorAll("form").forEach((form) => {
-      form.addEventListener("submit", () => {
-        showLoader();
-      });
+      form.addEventListener(
+        "submit",
+        () => {
+          showLoader();
+        },
+        true
+      );
     });
 
     window.addEventListener("pageshow", () => {
       hideLoader();
     });
+
+    window.kyoShowPageLoader = showLoader;
+    window.kyoHidePageLoader = hideLoader;
+  }
+
+  /**
+   * Loader otomatis untuk semua panggilan ke /api/* (fetch & XHR).
+   * - Upload (FormData / multipart): loader langsung.
+   * - Selain itu: loader hanya jika respons > ~280ms (hindari kedip di API cepat).
+   * - /api/health diabaikan (cocok untuk polling).
+   */
+  function initApiGlobalLoader() {
+    const origFetch = window.fetch;
+    if (typeof origFetch !== "function" || origFetch.__kyoPatched) {
+      return;
+    }
+
+    const API_PREFIX = "/api/";
+    const SLOW_SHOW_MS = 280;
+
+    let inFlight = 0;
+    let delayTimerId = null;
+    let loaderVisible = false;
+
+    function pathnameFromFetchInput(input) {
+      try {
+        if (typeof input === "string") {
+          const u = new URL(input, window.location.origin);
+          if (u.origin !== window.location.origin) {
+            return null;
+          }
+          return u.pathname + u.search;
+        }
+        if (input instanceof Request) {
+          const u = new URL(input.url);
+          if (u.origin !== window.location.origin) {
+            return null;
+          }
+          return u.pathname + u.search;
+        }
+      } catch (_e) {
+        return null;
+      }
+      return null;
+    }
+
+    function shouldShowLoaderForApiPath(pathWithQuery) {
+      if (!pathWithQuery || !pathWithQuery.startsWith(API_PREFIX)) {
+        return false;
+      }
+      const pathOnly = pathWithQuery.split("?")[0];
+      if (pathOnly === "/api/health") {
+        return false;
+      }
+      return true;
+    }
+
+    function isUploadFetch(input, init) {
+      if (init && init.body instanceof FormData) {
+        return true;
+      }
+      if (input instanceof Request && input.body instanceof FormData) {
+        return true;
+      }
+      const headers = init?.headers || (input instanceof Request ? input.headers : null);
+      if (headers) {
+        const ct =
+          typeof headers.get === "function"
+            ? headers.get("content-type") || ""
+            : headers["Content-Type"] || headers["content-type"] || "";
+        if (String(ct).toLowerCase().includes("multipart/form-data")) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function showLoader() {
+      if (loaderVisible) {
+        return;
+      }
+      loaderVisible = true;
+      window.kyoShowPageLoader?.();
+    }
+
+    function hideLoaderIfIdle() {
+      if (inFlight > 0) {
+        return;
+      }
+      if (delayTimerId) {
+        window.clearTimeout(delayTimerId);
+        delayTimerId = null;
+      }
+      if (loaderVisible) {
+        loaderVisible = false;
+        window.kyoHidePageLoader?.();
+      }
+    }
+
+    function armDelayedShow() {
+      if (delayTimerId) {
+        return;
+      }
+      delayTimerId = window.setTimeout(() => {
+        delayTimerId = null;
+        if (inFlight > 0) {
+          showLoader();
+        }
+      }, SLOW_SHOW_MS);
+    }
+
+    function patchedFetch(input, init) {
+      const pathWithQuery = pathnameFromFetchInput(input);
+      if (!shouldShowLoaderForApiPath(pathWithQuery)) {
+        return origFetch.apply(window, arguments);
+      }
+
+      inFlight += 1;
+      const upload = isUploadFetch(input, init);
+
+      if (upload) {
+        if (delayTimerId) {
+          window.clearTimeout(delayTimerId);
+          delayTimerId = null;
+        }
+        showLoader();
+      } else {
+        armDelayedShow();
+      }
+
+      return origFetch.apply(window, arguments).finally(() => {
+        inFlight -= 1;
+        if (inFlight < 0) {
+          inFlight = 0;
+        }
+        hideLoaderIfIdle();
+      });
+    }
+    patchedFetch.__kyoPatched = true;
+    window.fetch = patchedFetch;
+
+    const XHR = window.XMLHttpRequest;
+    if (!XHR || XHR.prototype.__kyoXhrPatched) {
+      return;
+    }
+    const origOpen = XHR.prototype.open;
+    const origSend = XHR.prototype.send;
+
+    XHR.prototype.open = function (method, url, ...rest) {
+      try {
+        const u = new URL(String(url), window.location.origin);
+        const full = u.pathname + u.search;
+        this.__kyoHitApiLoader = u.origin === window.location.origin && shouldShowLoaderForApiPath(full);
+      } catch (_e) {
+        this.__kyoHitApiLoader = false;
+      }
+      return origOpen.apply(this, [method, url, ...rest]);
+    };
+
+    XHR.prototype.send = function (body) {
+      if (this.__kyoHitApiLoader) {
+        inFlight += 1;
+        const upload = body instanceof FormData;
+        if (upload) {
+          if (delayTimerId) {
+            window.clearTimeout(delayTimerId);
+            delayTimerId = null;
+          }
+          showLoader();
+        } else {
+          armDelayedShow();
+        }
+
+        const onEnd = () => {
+          this.removeEventListener("loadend", onEnd);
+          inFlight -= 1;
+          if (inFlight < 0) {
+            inFlight = 0;
+          }
+          hideLoaderIfIdle();
+        };
+        this.addEventListener("loadend", onEnd);
+      }
+      return origSend.apply(this, arguments);
+    };
+    XHR.prototype.__kyoXhrPatched = true;
   }
 
   function initPageSizeSelect() {
@@ -151,8 +340,35 @@
         editForm.action = `/admin/users/${btn.dataset.id}/update`;
         const u = document.getElementById("admin-edit-username");
         const p = document.getElementById("admin-edit-password");
+        const curLabel = document.getElementById("admin-edit-current-password-label");
+        const curInput = document.getElementById("admin-edit-current-password");
+        const titleEl = document.getElementById("admin-edit-modal-title");
+        const hintEl = document.getElementById("admin-edit-modal-hint");
+        const requireCurrent = btn.dataset.requireCurrent === "1";
+
         if (u) u.value = btn.dataset.username || "";
         if (p) p.value = "";
+        if (curInput) curInput.value = "";
+
+        if (curLabel && curInput) {
+          if (requireCurrent) {
+            curLabel.hidden = false;
+            curInput.required = true;
+          } else {
+            curLabel.hidden = true;
+            curInput.required = false;
+          }
+        }
+
+        if (titleEl) {
+          titleEl.textContent = requireCurrent ? "Edit akun superadmin" : "Edit admin";
+        }
+        if (hintEl) {
+          hintEl.textContent = requireCurrent
+            ? "Isi password saat ini untuk konfirmasi. Username dan password baru bisa diubah (password baru opsional)."
+            : "Kosongkan password baru jika tidak ingin mengganti.";
+        }
+
         editModal.showModal();
       });
     });
@@ -191,5 +407,6 @@
   initBomPage();
   initAdminUsersPage();
   initPageLoader();
+  initApiGlobalLoader();
   initPageSizeSelect();
 })();

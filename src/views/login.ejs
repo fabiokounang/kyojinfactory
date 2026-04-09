@@ -8,6 +8,12 @@
   </head>
   <body>
     <div class="bg-grid"></div>
+    <div id="globalPageLoader" class="global-loader" aria-live="polite" aria-busy="false">
+      <div class="global-loader-card">
+        <div class="global-loader-spinner"></div>
+        <p>Loading, mohon tunggu...</p>
+      </div>
+    </div>
     <main class="center-container">
       <section class="card auth-card">
         <p class="eyebrow">Factory Control Panel</p>
@@ -27,10 +33,10 @@
           </label>
           <button type="submit">Login</button>
         </form>
-        <div class="hint-box">
-          <div><strong>Default User:</strong> superadmin / master</div>
-          <div><strong>New Admin:</strong> admin / admin123</div>
-        </div>
+        <!-- <div class="hint-box">
+          <div><strong>Default User:</strong> </div>
+          <div><strong>New Admin:</strong> </div>
+        </div> -->
       </section>
     </main>
     <script src="/app-ui.js"></script>

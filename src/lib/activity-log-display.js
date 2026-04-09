@@ -67,6 +67,7 @@ const ACTION_LABELS = {
   "admin.user.create": { label: "Admin · tambah akun", badge: "action-badge--admin" },
   "admin.user.update": { label: "Admin · ubah akun", badge: "action-badge--admin" },
   "admin.user.delete": { label: "Admin · hapus akun", badge: "action-badge--admin-del" },
+  "admin.superadmin.self.update": { label: "Superadmin · ubah profil sendiri", badge: "action-badge--admin" },
 };
 
 function describeActivityAction(raw) {

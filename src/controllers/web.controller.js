@@ -26,6 +26,7 @@ const {
   getUserById,
   createAdminUser,
   updateAdminUser,
+  updateSuperadminSelf,
   deleteAdminUser,
 } = require("../services/admin.service");
 const { setAdminPermissions, getUserPermissions } = require("../services/permission.service");
@@ -566,12 +567,72 @@ async function postCreateAdminUserPage(req, res) {
 
 async function postAdminUserUpdatePage(req, res) {
   const targetUserId = Number(req.params.id);
+  const sessionUser = req.session.user;
+  const { username, password, currentPassword } = req.body || {};
+
   const targetUser = await getUserById(targetUserId);
-  if (!targetUser || targetUser.role !== "admin") {
+  if (!targetUser) {
+    return res.redirect(`/admin/users?error=${encodeURIComponent("User tidak ditemukan")}`);
+  }
+
+  if (targetUser.role === "superadmin") {
+    if (Number(sessionUser.id) !== targetUserId) {
+      return res.redirect(
+        `/admin/users?error=${encodeURIComponent("Tidak bisa mengubah akun superadmin lain")}`
+      );
+    }
+
+    const result = await updateSuperadminSelf(targetUserId, {
+      currentPassword,
+      username,
+      newPassword: password,
+    });
+    if (result.error) {
+      await createActivityLog({
+        req,
+        user: req.session.user,
+        action: "admin.superadmin.self.update",
+        menuKey: MENU_KEYS.USER_MANAGEMENT,
+        entityType: "user",
+        entityId: targetUserId,
+        status: "failed",
+        note: result.error,
+        submittedData: {
+          username: String(username || "").trim(),
+          passwordChanged: Boolean(String(password || "").trim()),
+        },
+      });
+      return res.redirect(`/admin/users?error=${encodeURIComponent(result.error)}`);
+    }
+
+    req.session.user = {
+      ...sessionUser,
+      username: result.data.username,
+    };
+
+    await createActivityLog({
+      req,
+      user: req.session.user,
+      action: "admin.superadmin.self.update",
+      menuKey: MENU_KEYS.USER_MANAGEMENT,
+      entityType: "user",
+      entityId: targetUserId,
+      beforeData: { username: result.data.beforeUsername },
+      afterData: {
+        username: result.data.username,
+        passwordChanged: result.data.passwordChanged,
+      },
+      submittedData: { passwordChanged: result.data.passwordChanged },
+    });
+    return res.redirect(
+      `/admin/users?msg=${encodeURIComponent("Profil superadmin berhasil diperbarui")}`
+    );
+  }
+
+  if (targetUser.role !== "admin") {
     return res.redirect("/admin/users?error=User+admin+tidak+ditemukan");
   }
 
-  const { username, password } = req.body || {};
   const result = await updateAdminUser(targetUserId, { username, password });
   if (result.error) {
     await createActivityLog({

@@ -169,6 +169,65 @@ async function updateAdminUser(id, { username, password }) {
   };
 }
 
+async function updateSuperadminSelf(userId, { currentPassword, username, newPassword }) {
+  const db = await getDb();
+  const row = await db.get("SELECT id, username, role, password_hash FROM users WHERE id = ?", userId);
+  if (!row || row.role !== "superadmin") {
+    return { error: "Akun superadmin tidak ditemukan", status: 404 };
+  }
+
+  if (!String(currentPassword || "").trim()) {
+    return { error: "Password saat ini wajib diisi" };
+  }
+  if (!bcrypt.compareSync(String(currentPassword), row.password_hash)) {
+    return { error: "Password saat ini salah" };
+  }
+
+  const vu = validateAdminUsername(username);
+  if (vu.error) {
+    return { error: vu.error };
+  }
+
+  const dup = await db.get(
+    "SELECT id FROM users WHERE username = ? AND id <> ?",
+    vu.username,
+    userId
+  );
+  if (dup) {
+    return { error: "Username sudah dipakai" };
+  }
+
+  const pwd = String(newPassword || "").trim();
+  if (pwd && pwd.length < 6) {
+    return { error: "Password baru minimal 6 karakter" };
+  }
+
+  if (pwd) {
+    const hash = bcrypt.hashSync(pwd, 10);
+    await db.run(
+      "UPDATE users SET username = ?, password_hash = ? WHERE id = ? AND role = 'superadmin'",
+      vu.username,
+      hash,
+      userId
+    );
+  } else {
+    await db.run(
+      "UPDATE users SET username = ? WHERE id = ? AND role = 'superadmin'",
+      vu.username,
+      userId
+    );
+  }
+
+  return {
+    data: {
+      id: userId,
+      username: vu.username,
+      beforeUsername: row.username,
+      passwordChanged: Boolean(pwd),
+    },
+  };
+}
+
 async function deleteAdminUser(id) {
   const db = await getDb();
   const row = await db.get("SELECT id, username, role FROM users WHERE id = ?", id);
@@ -186,5 +245,6 @@ module.exports = {
   getUserById,
   createAdminUser,
   updateAdminUser,
+  updateSuperadminSelf,
   deleteAdminUser,
 };

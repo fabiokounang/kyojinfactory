@@ -108,12 +108,14 @@
                   <% } %>
                 </td>
                 <td class="action-cell">
+                  <% const isSelfSuperadmin = row.role === "superadmin" && Number(user.id) === Number(row.id); %>
                   <% if (row.role === "admin") { %>
                   <button
                     type="button"
                     class="btn-secondary js-edit-admin"
                     data-id="<%= row.id %>"
                     data-username="<%= row.username %>"
+                    data-require-current="0"
                   >
                     Edit
                   </button>
@@ -124,6 +126,16 @@
                     data-label="admin <%= row.username %>"
                   >
                     Hapus
+                  </button>
+                  <% } else if (isSelfSuperadmin) { %>
+                  <button
+                    type="button"
+                    class="btn-secondary js-edit-admin"
+                    data-id="<%= row.id %>"
+                    data-username="<%= row.username %>"
+                    data-require-current="1"
+                  >
+                    Edit profil
                   </button>
                   <% } else { %>
                   <span class="muted">—</span>
@@ -164,9 +176,18 @@
         <button class="modal-close-x" aria-label="Close">x</button>
       </form>
       <div class="modal-content">
-        <h3>Edit admin</h3>
-        <p class="muted">Kosongkan password jika tidak ingin mengganti.</p>
+        <h3 id="admin-edit-modal-title">Edit admin</h3>
+        <p id="admin-edit-modal-hint" class="muted">Kosongkan password baru jika tidak ingin mengganti.</p>
         <form id="adminEditForm" method="post" class="form-grid">
+          <label id="admin-edit-current-password-label" hidden>
+            Password saat ini (wajib)
+            <input
+              type="password"
+              name="currentPassword"
+              id="admin-edit-current-password"
+              autocomplete="current-password"
+            />
+          </label>
           <label>
             Username
             <input type="text" name="username" id="admin-edit-username" required autocomplete="off" pattern="[a-zA-Z0-9._-]{2,}" />
